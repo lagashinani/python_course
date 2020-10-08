@@ -1,41 +1,37 @@
-with open("newsafr.xml", encoding="utf8") as inp:
-    xml = inp.read()
+import xml.etree.ElementTree as etree
 
 
 
+def extract_info_from_xml(file_name):
+    '''Отвечает за работу с xml api:
+        file_name: имя файла
+        return: список словарей из названий и тела новостей'''
+    tree = etree.parse(file_name)
+    root = tree.getroot()
+    items = root.findall("channel")[0].findall("item")
+    return [{"title": item.find("title").text,  
+             "description": item.find("description").text} for item in items]
 
-xml_spl = []
-while True:
-    st1 = xml.find("<item ")
-    if (st1 == -1):
-        break
-    st1 = xml.find(">", st1)
-    st2 = xml.find("</item>")
-    
-    xml_spl.append({})
+def get_word_count(items, min_len):
+    '''Преобразует список словарей из названий и тел новостей в счетчик слов
+       items: список словарей
+       min_len: минимальная длина учитываемых слова
+       return: словарь-счетчик'''
+    words_count = {}
+    for rec in items:
+        words = (rec["description"] + " " + rec["title"]).split()
+        for word in words:
+            if len(word) > min_len:
+                words_count[word] = words_count.get(word, 0) + 1
+    return words_count
 
-    xml_dict_now = xml[st1+1: st2]
+def get_topn_words(words_count, topn):
+    '''Преобразует счетчик слов в спиок topn слов со счетчиком
+       words_count: счетчик слов
+       topn: количество top слов, для возврата
+       return: список пар слово: количество'''
+    return sorted(words_count.items(), key=lambda x: x[1], reverse=True)[:topn]
 
-    while True:
-        key_1 = xml_dict_now.find("<")
-        if (key_1 == -1):
-            break
-        key_2 = xml_dict_now.find(">", key_1 + 1)
-
-        val_2 = xml_dict_now.find("<", key_2 + 1)
-
-        xml_spl[-1][xml_dict_now[key_1 + 1:key_2]] = xml_dict_now[key_2 + 1:val_2]
-        xml_dict_now = xml_dict_now[val_2 + 1:]
-
-    xml = xml[st2 + 1:]
-
-
-words_count = {}
-for rec in xml_spl:
-    words = (rec["description"] + " " + rec["title"]).split()
-    for word in words:
-        if len(word) > 6:
-            words_count[word] = words_count.get(word, 0) + 1
-
-
-print(sorted(words_count.items(), key=lambda x: x[1], reverse=True)[:10])
+xml_spl = extract_info_from_xml("newsafr.xml")
+words_count = get_word_count(xml_spl, 6)
+print(get_topn_words(words_count, 10))
